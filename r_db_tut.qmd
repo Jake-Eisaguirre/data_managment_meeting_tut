@@ -1,0 +1,193 @@
+---
+title: "RStudio Database Interaction"
+format: html
+editor: visual
+---
+
+## Connecting to the Database
+
+#### Packages 
+
+```{r}
+#| output: false
+library(RPostgres)  # The database driver
+library(DBI)        # Functions needed to interact with the database
+library(rstudioapi) # Package that asked for credentials 
+
+
+# The method below for calling in packages does the same as using `library` but will download any packages that are not initally downloaded. This is a cleaner method and more user friendly for sharing scripts between colleagues 
+
+
+if (!require(librarian)){
+  install.packages("librarian")
+  library(librarian)
+}
+# librarian downloads, if not already downloaded, and reads in needed packages
+librarian::shelf(RPostgres, DBI, rstudioapi)
+
+
+```
+
+Connecting
+
+```{r}
+# connecting to RIBBiTR Database
+ribbitr_connection <- dbConnect(drv = dbDriver("Postgres"),
+                                dbname = "RIBBiTR",
+                                host = "localhost",
+                                port = "5432",
+                                user = Sys.getenv("user"),
+                                password = Sys.getenv("password"))
+
+   
+              
+# Same method for connecting to RIBBiTR databse but will give feedback, I recommend copying this
+
+tryCatch({
+    print("Connecting to Database…")
+  
+    ribbitr_connection <- dbConnect(drv = dbDriver("Postgres"),
+                                    dbname = "RIBBiTR",
+                                    host = "localhost",
+                                    port = "5432",
+                                    user = Sys.getenv("user"),
+                                    password = Sys.getenv("password"))
+    
+    print("Database Connected!")
+    },
+    error=function(cond) {
+            print("Unable to connect to Database.")
+    })
+
+
+
+
+# setting your search path
+dbSendQuery(conn = ribbitr_connection, 
+            statement = "set search_path = 'survey_data';")
+```
+
+#### Interacting 
+
+```{r}
+
+# location table
+location_sql <- "select * from location;"
+  
+location <- dbGetQuery(conn = ribbitr_connection,
+                       statement = location_sql)
+
+
+# region table
+region_sql <- "select * from region;"
+
+region <- dbGetQuery(conn = ribbitr_connection,
+                     statement = region_sql)
+
+
+
+# join specific column from 'location' table onto 'region' table
+location_region_sql <- "select l.location, r.region
+                        from location l
+                        join region r on l.location_id  = r.location_id;"
+
+location_region <- dbGetQuery(conn = ribbitr_connection,
+                              statement = location_region_sql)
+
+
+
+# putting it all together
+
+large_pan_frogs_sql <- "select 
+                      l.location, r.region, s.site, v.date, v.survey_time, su.start_time,
+                      su.end_time, su.duration_minutes, c.species_capture, c.time_of_capture,
+                      c.body_temp_c, c.svl_mm, c.body_mass_g, c.sex, c.life_stage
+                      from location l
+                      join region r on l.location_id = r.location_id 
+                      join site s on r.region_id = s.region_id 
+                      join visit v on s.site_id = v.site_id 
+                      join survey su on v.visit_id = su.visit_id 
+                      join capture c on su.survey_id = c.survey_id
+                      where c.svl_mm > '23' and l.location = 'panama';"
+
+large_pan_frogs <- dbGetQuery(conn = ribbitr_connection,
+                              statement = large_pan_frogs_sql)
+
+
+
+
+```
+
+#### Reproducible Workflow 
+
+```{r}
+# packages
+if (!require(librarian)){
+  install.packages("librarian")
+  library(librarian)
+}
+# librarian downloads, if not already downloaded, and reads in needed packages
+librarian::shelf(RPostgres, DBI, rstudioapi, tidyverse)
+
+
+
+# db connection
+tryCatch({
+    print("Connecting to Database…")
+  
+    ribbitr_connection <- dbConnect(drv = dbDriver("Postgres"),
+                                    dbname = "RIBBiTR",
+                                    host = "localhost",
+                                    port = "5432",
+                                    user = Sys.getenv("user"),
+                                    password = Sys.getenv("password"))
+    
+    print("Database Connected!")
+    },
+    error=function(cond) {
+            print("Unable to connect to Database.")
+    })
+
+
+# search path 'survey_data'
+dbSendQuery(conn = ribbitr_connection, 
+            statement = "set search_path = 'survey_data';")
+
+
+# data from all sights where frog bodymass and body_temp is not null
+
+sql_query <- "select 
+              l.location, r.region, s.site, v.date, v.survey_time, su.start_time,
+              su.end_time, su.duration_minutes, c.species_capture, c.time_of_capture,
+              c.body_temp_c, c.svl_mm, c.body_mass_g 
+              from location l
+              join region r on l.location_id = r.location_id 
+              join site s on r.region_id = s.region_id 
+              join visit v on s.site_id = v.site_id 
+              join survey su on v.visit_id = su.visit_id 
+              join capture c on su.survey_id = c.survey_id
+              where c.body_mass_g is not null
+              and c.body_temp_c is not null;"
+
+data <- dbGetQuery(conn = ribbitr_connection,
+                   statement = sql_query)
+
+
+# visualize 
+ggplot(data = data, aes(x = body_mass_g, y = body_temp_c)) +
+  geom_point() +
+  theme_minimal()
+
+
+# exploratory anaylsis 
+linear_model <- lm(body_temp_c ~ body_mass_g, data = data)
+
+summary(linear_model)
+
+
+# visualize model
+ggplot(data = data, aes(x = body_mass_g, y = body_temp_c)) +
+  geom_point() +
+  theme_minimal() +
+  geom_smooth(method = "lm")
+```
