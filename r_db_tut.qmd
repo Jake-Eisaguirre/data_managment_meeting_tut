@@ -75,7 +75,7 @@ dbSendQuery(conn = ribbitr_connection,
             statement = "set search_path = 'survey_data';")
 ```
 
-#### Interacting
+#### Interacting - DBI Package
 
 ```{r}
 
@@ -126,6 +126,44 @@ large_pan_frogs <- dbGetQuery(conn = ribbitr_connection,
 
 ```
 
+#### Interacting - Code Chunks
+
+##### Location table
+
+```{sql, connection = ribbitr_connection, output.var = location}
+
+select * from locationl;
+
+
+
+```
+
+##### Region table
+
+```{sql, connection = ribbitr_connection, output.var = region}
+
+select * from region;
+
+```
+
+##### Large Panamanian Frogs
+
+```{sql, connection = ribbitr_connection, output.var = large_pan_frogs}
+
+select 
+l.location, r.region, s.site, v.date, v.survey_time, su.start_time,
+su.end_time, su.duration_minutes, c.species_capture, c.time_of_capture,
+c.body_temp_c, c.svl_mm, c.body_mass_g, c.sex, c.life_stage
+from location l
+join region r on l.location_id = r.location_id 
+join site s on r.region_id = s.region_id 
+join visit v on s.site_id = v.site_id 
+join survey su on v.visit_id = su.visit_id 
+join capture c on su.survey_id = c.survey_id
+where c.svl_mm > '23' and l.location = 'panama';
+
+```
+
 #### Reproducible Workflow
 
 ```{r}
@@ -157,9 +195,11 @@ tryCatch({
     })
 
 
+
 # search path 'survey_data'
 dbSendQuery(conn = ribbitr_connection, 
             statement = "set search_path = 'survey_data';")
+
 
 
 # data from all sights where frog bodymass and body_temp is not null
