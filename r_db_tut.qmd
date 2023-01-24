@@ -130,9 +130,9 @@ large_pan_frogs <- dbGetQuery(conn = ribbitr_connection,
 
 ##### Location table
 
-```{sql, connection = ribbitr_connection, output.var = location}
+```{sql, connection = ribbitr_connection, output.var = location_1}
 
-select * from locationl;
+select * from location;
 
 
 
@@ -140,7 +140,7 @@ select * from locationl;
 
 ##### Region table
 
-```{sql, connection = ribbitr_connection, output.var = region}
+```{sql, connection = ribbitr_connection, output.var = region_1}
 
 select * from region;
 
@@ -148,7 +148,7 @@ select * from region;
 
 ##### Large Panamanian Frogs
 
-```{sql, connection = ribbitr_connection, output.var = large_pan_frogs}
+```{sql, connection = ribbitr_connection, output.var = large_pan_frogs_1}
 
 select 
 l.location, r.region, s.site, v.date, v.survey_time, su.start_time,
